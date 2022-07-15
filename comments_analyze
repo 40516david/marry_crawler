@@ -1,0 +1,132 @@
+from bs4 import BeautifulSoup
+import requests
+import re
+import time
+import emoji
+import json
+import pandas as pd
+import random
+
+i = 1
+  # 反反爬蟲
+
+header = {
+    'user-agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.1 Safari/605.1.15'
+    }
+
+# 按頁碼爬取
+dff = pd.DataFrame()
+
+for index in range(0,2583):
+    url = 'https://www.marry.com.tw/reviews-kwbt2003mmpg'
+    url = url + str(index) + 'mm'
+    print(url)
+    response = requests.get(url, verify=False, headers = header)
+    soup = BeautifulSoup(response.text, "html.parser")
+    
+    
+    #轉換成json
+    try:
+        html = soup.find_all('script',type = 'application/ld+json')[2]
+        html = html.string.replace('\r\n','') #去除換行
+        root_json = json.loads(html, strict = False)
+
+        #篩選出有價值的資料
+
+        for data in root_json:
+        
+            author = data['author']['name']            #找出作者
+            firm = data['itemReviewed']['name']        #找出廠商
+            rank = data['reviewRating']['ratingValue'] #找出評價
+            raw_comment = data['reviewBody']           #找出評論
+        
+            #前處理 移除評論中的emoji
+        
+            str_emoji = emoji.demojize(raw_comment)
+            comments = re.sub(':\S+?:', ' ', str_emoji)
+
+            #將資料轉為轉為csv
+            dict1 = {'author':[author], 'firm':[firm], 'rank':[rank], 'comments':[comments]}
+
+            df = pd.DataFrame(dict1)
+        
+            dff = pd.concat([dff,df],ignore_index=True)
+
+        print('Processing: page ', i)
+    except:
+         print('Error: page ', i)
+     
+    i += 1
+
+    time.sleep(random.uniform(1,2))
+    
+#將csv存至雲端
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+import os
+os.chdir('/content/drive/My Drive')
+
+#dff.to_csv('comment.csv')
+
+import pandas as pd
+
+dff = pd.read_csv('comment.csv')
+
+
+# 對句子進行分詞  
+def seg_sentence(sentence):  
+    sentence_seged = jieba.cut(sentence.strip())  
+
+    # 創建停用詞list
+    f = open('stopwords.txt','r')
+    stopwords = [line.strip() for line in f]
+    outstr = ''  
+    for word in sentence_seged:  
+        if word not in stopwords:  
+            if word != '\t':  
+                outstr += word  
+                outstr += " "   #再次組合成【帶空格】的串
+    return outstr
+    
+    import jieba
+
+df = dff['comments']
+jieba.load_userdict('dict.txt.big')
+
+fileTrainSeg = []
+
+for line in df:  
+    line_seg = seg_sentence(line)  # 返回值是字符串
+    if line_seg != ' ':
+        fileTrainSeg.append(line_seg)
+
+print(fileTrainSeg)
+
+with open('test.txt', 'w') as temp_file:
+    for context in fileTrainSeg:
+        temp_file.write("%s\n" % context)
+        
+        from gensim.models import word2vec
+
+source= 'test.txt'
+model_name = 'my_model'
+vector_size = 256
+min_count = 1
+window_size = 10
+workers = 3
+iter = 20
+
+sentences = word2vec.LineSentence(source)
+model = word2vec.Word2Vec(sentences, size=vector_size, min_count=min_count, window=window_size, workers=workers)
+#model.save(model_name)
+
+sims = model.wv.most_similar('新娘')
+print(sims)
+
+print(model.wv.index2word)
+
+bad_comment = (dff['rank'] != 5) & (dff['rank'] != 4)
+
+dff.loc[bad_comment]
