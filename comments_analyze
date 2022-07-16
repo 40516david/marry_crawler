@@ -90,7 +90,7 @@ def seg_sentence(sentence):
                 outstr += " "   #再次組合成【帶空格】的串
     return outstr
     
-    import jieba
+import jieba
 
 df = dff['comments']
 jieba.load_userdict('dict.txt.big')
@@ -108,18 +108,18 @@ with open('test.txt', 'w') as temp_file:
     for context in fileTrainSeg:
         temp_file.write("%s\n" % context)
         
-        from gensim.models import word2vec
+from gensim.models import word2vec
 
 source= 'test.txt'
 model_name = 'my_model'
 vector_size = 256
-min_count = 1
+min_count = 2
 window_size = 10
 workers = 3
-iter = 20
+iter = 10
 
 sentences = word2vec.LineSentence(source)
-model = word2vec.Word2Vec(sentences, size=vector_size, min_count=min_count, window=window_size, workers=workers)
+model = word2vec.Word2Vec(sentences, size=vector_size, min_count=min_count, window=window_size, workers= workers, iter = iter)
 #model.save(model_name)
 
 sims = model.wv.most_similar('新娘')
